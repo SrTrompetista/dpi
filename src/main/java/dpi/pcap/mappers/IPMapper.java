@@ -23,11 +23,7 @@ public class IPMapper extends Mapper<LongWritable, Text, Text, Text>
 		
 		if (linha.startsWith("ip.addr;"))
 		{
-			log.info("IPMAPPER: A linha começou com ip.addr."); 
-			
 			conf.set("filtros", linha);
-			conf.set("teste", "teste");
-			log.info("IPMAPPER: Configurado o valor de filtros para :"+linha);
 			
 			String[] filtros = linha.split(";");
 			int i = 0;
@@ -37,17 +33,31 @@ public class IPMapper extends Mapper<LongWritable, Text, Text, Text>
 					break;
 			
 			conf.set("ip.src", Integer.toString(i));
-			log.info("IPMAPPER: Foi encontrado o campo ip.src no numero: "+i);
 		}
 		
 		else
 		{
-			String[] valores = linha.split(";");
 			String  ipAddress = conf.get("ip.src");
+			String[] filtros = conf.get("filtros").split(";");
+			String[] valores = linha.split(";");
 
-			log.info("IPMAPPER: Ip de origem: "+ valores[Integer.parseInt(ipAddress)]);
-			
-			context.write(new Text(valores[Integer.parseInt(ipAddress)]),  new Text(linha));
+			StringBuilder strBuilder = new StringBuilder();
+
+			for (int i = 0; i < valores.length; i++)
+			{
+				if (valores[i].isEmpty())
+				{
+					strBuilder.append(filtros[i]+"=vazio;");
+				} else
+				{
+					strBuilder.append(filtros[i]+"="+valores[i]+";");
+				}
+
+			}
+
+			//map: <key, value> -> <ip.src, ip.addr=172.16...;ip.checksum=0x0002;...>
+			log.info("IPMAPPER: Escreveu o par: <"+valores[Integer.parseInt(ipAddress)]+", "+strBuilder.toString()+">");
+			context.write(new Text(valores[Integer.parseInt(ipAddress)]),  new Text(strBuilder.toString()));
 		}	
 	}
 }

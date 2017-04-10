@@ -6,6 +6,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 
+import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 
 import org.apache.hadoop.mapreduce.Job;
@@ -49,7 +50,7 @@ public class PcapDpi extends Configured implements Tool
 		job.setReducerClass(IPReducer.class);
 		log.info("DRIVER: Classe reducer adicionada: IPReducer.class");
 		
-		job.setOutputKeyClass(Text.class);
+		job.setOutputKeyClass(NullWritable.class);
 		job.setOutputValueClass(Text.class);
 		
 		FileOutputFormat.setOutputPath(job,  new Path(args[1]));

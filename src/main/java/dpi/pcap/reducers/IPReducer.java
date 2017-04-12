@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.commons.logging.Log;
@@ -25,9 +26,10 @@ public class IPReducer extends Reducer<Text, Text, NullWritable, Text>
 		String chave, valor;
 		String valorExistente;
 		String[] valoresTotais, temp;
+		JSONArray jsonExistente;
+
 		
-		Map<String, String> myMap = new HashMap<String, String>();
-		Map<String, JSONObject> myMap2 = new HashMap<String, JSONObject>();
+		Map<String, JSONArray> myMap2 = new HashMap<String, JSONArray>();
 
 		for (Text record : records)
 		{
@@ -36,62 +38,101 @@ public class IPReducer extends Reducer<Text, Text, NullWritable, Text>
 			for (int i = 0; i < parChaveValor.length; i++)
 			{
 
-				log.info("IPREDUCER: AQUIIIIIIIIIIIIIII >>>>>>>> " + parChaveValor[i]);
 				temp = parChaveValor[i].split("=");
 				chave = temp[0];
 				valor = temp[1];
 
-				if (myMap.containsKey(chave))
-				{
-					valorExistente = myMap.get(chave);
-					myMap.put(chave, valorExistente == "" ? valor : valorExistente + ", " + valor);
+				if (myMap2.containsKey(chave))
+				{					
+					jsonExistente = myMap2.get(chave);
+					jsonExistente.put(valor);
+					myMap2.put(chave, jsonExistente);
 				} else
 				{
-					myMap.put (chave, valor);
+					JSONArray list = new JSONArray();
+					list.put(valor);
+					myMap2.put (chave, list);
 				}
 			}
 		}
 		
-		JSONObject hue = new JSONObject(myMap);
+		Map<String, JSONObject> myMap3 = new HashMap<String, JSONObject>();
 		
-		log.info("IPREDUCER: HASHMAP >>>>>>>> " + hue.toString());
-		/*
-		for (String name: myMap.keySet())
+		String[] hierarquia;
+		for (Map.Entry<String, JSONArray> entry : myMap2.entrySet())
 		{
+			chave = entry.getKey();
+			hierarquia = chave.split("\\.");
+			
+			for (int i = hierarquia.length -1; i >= 0; i--)
+			{
+				if (i == hierarquia.length-1)
+				{
+					try 
+					{
+						JSONObject novoJSON = new JSONObject();
+						novoJSON.put(hierarquia[i], entry.getValue());
+						myMap3.put(hierarquia[i], novoJSON);
+						log.info("i = "+i+". Criando novo JSON: "+hierarquia[i]+", "+novoJSON.toString());
+					} catch (JSONException e) 
+					{
+						e.printStackTrace();
+					}
+				} else if (i != hierarquia.length-1)
+				{
+					if (!myMap3.containsKey(hierarquia[i]))
+					{
+						try
+						{
+							log.info("Map não contém JSON "+hierarquia[i]);
+							JSONObject novoJSON = new JSONObject();
+							novoJSON.put(hierarquia[i], myMap3.get(hierarquia[i+1]));
+							myMap3.put(hierarquia[i], novoJSON);
+							myMap3.remove(hierarquia[i+1]);
+							log.info("i = "+i+". Criando novo JSON: "+hierarquia[i]+", "+novoJSON.toString());
+						} catch (JSONException e)
+						{
+							e.printStackTrace();
+						}
+					} else 
+					{	
+						try
+						{
+								log.info("Map contém JSON "+hierarquia[i]);
+								JSONObject novoJSON = new JSONObject();
+								
+								JSONObject mergedObj = new JSONObject();
 
-            String chave =name.toString();
-            String value = myMap.get(name).toString();  
-           // System.out.println(chave + " " + value);  
-            log.info("IPREDUCER: HASHMAP >>>>>>>> " + chave + " " + value);
+								Iterator i1 = myMap3.get(hierarquia[i]).keys();
+								Iterator i2 = myMap3.get(hierarquia[i+1]).keys();
+								
+								String tmp_key;
+								while(i1.hasNext()) {
+								    tmp_key = (String) i1.next();
+								    mergedObj.put(tmp_key, myMap3.get(hierarquia[i]).get(tmp_key));
+								}
+								while(i2.hasNext()) {
+								    tmp_key = (String) i2.next();
+								    mergedObj.accumulate(tmp_key, myMap3.get(hierarquia[i+1]).get(tmp_key));
+								}
+								
+								
+								myMap3.put(hierarquia[i], mergedObj);
+								myMap3.remove(hierarquia[i+1]);
+								log.info("i = "+i+". Criando novo JSON: "+hierarquia[i]+", "+mergedObj.toString());
+								
+								
+						} catch (JSONException e)
+						{
+							e.printStackTrace();
+						}
+					}
+				}
+			}
 		}
-		*/
 		
-		/*
-		ArrayList<String> list = new ArrayList<String>();
-		list.add("john");
-		list.add("mat");
-		list.add("jason");
-		list.add("matthew");
+		JSONObject hue = myMap3.get("ip");
 		
-		JSONObject school = new JSONObject();
-
-		
-		try {
-			school.put("class","4");
-			school.put("name", new JSONArray(list));
-			log.info("IPMAPPER: Valores totais: "+school.toString());
-		} catch (JSONException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		for (int i = 0; i < valoresTotais.length; i ++)
-		{
-			valoresTotais[i] = valoresTotais[i].substring(0, valoresTotais[i].length()-1) + "],";
-		}
-		*/
-
-
 		context.write(NullWritable.get(), new Text(hue.toString()));
 		
 	}

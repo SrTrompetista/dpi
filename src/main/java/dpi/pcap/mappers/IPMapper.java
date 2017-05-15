@@ -1,53 +1,69 @@
 package dpi.pcap.mappers;
 
 import java.io.IOException;
+import java.net.Socket;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Mapper;
 
 public class IPMapper extends Mapper<LongWritable, Text, Text, Text> 
 {
 	@Override
 	public void map(LongWritable key, Text record, Context context) throws IOException, InterruptedException 
-	{
-		Log log = LogFactory.getLog(IPMapper.class);
-		
+	{	
+		//Configuration nos permite usar o contexto para armazenar valores.
 		Configuration conf = context.getConfiguration();
 		
-		String linha = record.toString();
-		log.info("IPMAPPER: Leu a linha: "+linha);
+		String linha = record.toString();	
 		
-		if (linha.startsWith("ip.addr;"))
-		{
-			log.info("IPMAPPER: A linha começou com ip.addr."); 
-			
-			conf.set("filtros", linha);
-			conf.set("teste", "teste");
-			log.info("IPMAPPER: Configurado o valor de filtros para :"+linha);
-			
-			String[] filtros = linha.split(";");
-			int i = 0;
-			
-			for (i = 0; i < filtros.length; i++)
-				if (filtros[i].equals("ip.src"))
-					break;
-			
-			conf.set("ip.src", Integer.toString(i));
-			log.info("IPMAPPER: Foi encontrado o campo ip.src no numero: "+i);
-		}
-		
-		else
-		{
-			String[] valores = linha.split(";");
-			String  ipAddress = conf.get("ip.src");
+		Socket socket = new Socket ("172.16.20.39",4242);
 
-			log.info("IPMAPPER: Ip de origem: "+ valores[Integer.parseInt(ipAddress)]);
+		if (!linha.startsWith("ip.addr;"))	
+		{
+			//Restaura a posição que "ip.src" está presente
+			String  ipAddress = conf.get("ip.src");	
+			String  horaPacote = conf.get("frame.time_epoch");
 			
-			context.write(new Text(valores[Integer.parseInt(ipAddress)]),  new Text(linha));
+			String[] filtros = conf.get("filtrosIP").split(";");
+			String[] valores = linha.split(";");
+
+			StringBuilder strBuilder = new StringBuilder();
+
+			for (int i = 0; i < valores.length; i++)
+			{
+				if (valores[i].isEmpty())
+				{
+					//strBuilder.append(filtros[i]+"=vazio;");
+				} else
+				{
+					strBuilder.append(filtros[i]+"="+valores[i]+" ");
+				}
+
+			}
+
+			String comandoOpenTSDB = "put ip " 
+									 + valores[Integer.parseInt(horaPacote)].split("\\.")[0]
+									 + " 1 " 
+									 + strBuilder 
+									 + "\n";
+			
+			Log log = LogFactory.getLog(getClass());
+			log.info("Mapper: Comando -> " + comandoOpenTSDB);
+			
+			try
+			{
+				socket.getOutputStream().write(comandoOpenTSDB.getBytes());
+			} catch (Exception e)
+			{
+				e.printStackTrace();
+			}
+			
+			//map: <key, value> -> <ip.src, ip.addr=172.16...;ip.checksum=0x0002;...>
+			context.write(new Text(valores[Integer.parseInt(ipAddress)]),  new Text(strBuilder.toString()));
 		}	
 	}
 }

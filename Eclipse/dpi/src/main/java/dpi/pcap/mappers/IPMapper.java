@@ -1,7 +1,10 @@
 package dpi.pcap.mappers;
 
 import java.io.IOException;
+import java.net.Socket;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.io.LongWritable;
@@ -13,14 +16,18 @@ public class IPMapper extends Mapper<LongWritable, Text, Text, Text>
 	public void map(LongWritable key, Text record, Context context) throws IOException, InterruptedException 
 	{	
 		//Configuration nos permite usar o contexto para armazenar valores.
-		Configuration conf = context.getConfiguration();	
+		Configuration conf = context.getConfiguration();
 		
 		String linha = record.toString();	
 		
+		Socket socket = new Socket ("172.16.20.39",4242);
+
 		if (!linha.startsWith("ip.addr;"))	
 		{
 			//Restaura a posição que "ip.src" está presente
-			String  ipAddress = conf.get("ip.src");		
+			String  ipAddress = conf.get("ip.src");	
+			String  horaPacote = conf.get("frame.time_epoch");
+			
 			String[] filtros = conf.get("filtrosIP").split(";");
 			String[] valores = linha.split(";");
 
@@ -33,11 +40,28 @@ public class IPMapper extends Mapper<LongWritable, Text, Text, Text>
 					//strBuilder.append(filtros[i]+"=vazio;");
 				} else
 				{
-					strBuilder.append(filtros[i].replaceAll("\\.", "-")+"="+valores[i]+";");
+					strBuilder.append(filtros[i]+"="+valores[i]+" ");
 				}
 
 			}
 
+			String comandoOpenTSDB = "put ip " 
+									 + valores[Integer.parseInt(horaPacote)].split("\\.")[0]
+									 + " 1 " 
+									 + strBuilder 
+									 + "\n";
+			
+			Log log = LogFactory.getLog(getClass());
+			log.info("Mapper: Comando -> " + comandoOpenTSDB);
+			
+			try
+			{
+				socket.getOutputStream().write(comandoOpenTSDB.getBytes());
+			} catch (Exception e)
+			{
+				e.printStackTrace();
+			}
+			
 			//map: <key, value> -> <ip.src, ip.addr=172.16...;ip.checksum=0x0002;...>
 			context.write(new Text(valores[Integer.parseInt(ipAddress)]),  new Text(strBuilder.toString()));
 		}	

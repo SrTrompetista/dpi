@@ -27,6 +27,7 @@ public class IPReducer extends Reducer<Text, Text, NullWritable, Text>
 		
 		Map<String, JSONArray> mapChaveValores = new HashMap<String, JSONArray>();
 
+		/*
 		for (Text record : records)
 		{
 			String[] parChaveValor = record.toString().split(";");
@@ -82,6 +83,6 @@ public class IPReducer extends Reducer<Text, Text, NullWritable, Text>
 		}
 		
 		context.write(NullWritable.get(), new Text(indexador.toString()+"\n"+jsonFinal.toString()));
-		
+		*/
 	}
 }

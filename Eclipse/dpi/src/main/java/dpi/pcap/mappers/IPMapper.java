@@ -35,9 +35,10 @@ public class IPMapper extends Mapper<LongWritable, Text, Text, Text>
 
 			for (int i = 0; i < valores.length; i++)
 			{
-				if (valores[i].isEmpty())
+				if (valores[i].isEmpty() || valores[i].contains(","))
 				{
-					//strBuilder.append(filtros[i]+"=vazio;");
+					//isEmpty: nao e interessante para a aplicacao conter valores nulos
+					//contains(","): openTSDB nao suporta strings com virgulas.
 				} else
 				{
 					strBuilder.append(filtros[i]+"="+valores[i]+" ");
